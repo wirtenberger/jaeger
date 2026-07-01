@@ -34,11 +34,13 @@ var (
 			traceIDHex1,
 			now.Add(-1 * time.Hour),
 			now,
+			now.Add(-30 * time.Minute),
 		},
 		{
 			traceIDHex2,
 			time.Time{},
 			time.Time{},
+			now.Add(-2 * time.Hour),
 		},
 	}
 	testAttributeMetadata = []dbmodel.AttributeMetadata{
@@ -186,9 +188,9 @@ func scanTraceIDFn() func(dest any, src []any) error {
 		if !ok {
 			return fmt.Errorf("expected []any for dest, got %T", dest)
 		}
-		if len(ptrs) != 3 {
+		if len(ptrs) != 4 {
 			fmt.Println(src)
-			return fmt.Errorf("expected 3 destination arguments, got %d", len(ptrs))
+			return fmt.Errorf("expected 4 destination arguments, got %d", len(ptrs))
 		}
 
 		ptr, ok := ptrs[0].(*string)
@@ -206,9 +208,15 @@ func scanTraceIDFn() func(dest any, src []any) error {
 			return fmt.Errorf("expected *time.Time for dest[2], got %T", ptrs[2])
 		}
 
+		latestStartPtr, ok := ptrs[3].(*time.Time)
+		if !ok {
+			return fmt.Errorf("expected *time.Time for dest[3], got %T", ptrs[3])
+		}
+
 		*ptr = src[0].(string)
 		*startPtr = src[1].(time.Time)
 		*endPtr = src[2].(time.Time)
+		*latestStartPtr = src[3].(time.Time)
 		return nil
 	}
 }
@@ -1010,11 +1018,13 @@ func TestFindTraceIDs_SearchDepthExceedsMax(t *testing.T) {
 							"00000000000000000000000000000001",
 							time.Now().Add(-1 * time.Hour),
 							time.Now().Add(-1 * time.Minute),
+							time.Now().Add(-30 * time.Minute),
 						},
 						{
 							"00000000000000000000000000000002",
 							time.Now().Add(-2 * time.Hour),
 							time.Now().Add(-2 * time.Minute),
+							time.Now().Add(-90 * time.Minute),
 						},
 					},
 					ScanFn: scanTraceIDFn(),
@@ -1108,11 +1118,13 @@ func TestFindTraceIDs_DecodeErrorStopsIteration(t *testing.T) {
 							"0x",
 							time.Now().Add(-2 * time.Hour),
 							time.Now().Add(-2 * time.Minute),
+							time.Now().Add(-90 * time.Minute),
 						},
 						{
 							"invalid",
 							time.Now().Add(-3 * time.Hour),
 							time.Now().Add(-3 * time.Minute),
+							time.Now().Add(-150 * time.Minute),
 						},
 						testTraceIDsData[1],
 					},
@@ -1175,6 +1187,7 @@ func TestFindTraceIDs_ErrorCases(t *testing.T) {
 									"0x",
 									time.Now().Add(-1 * time.Hour),
 									time.Now().Add(-1 * time.Minute),
+									time.Now().Add(-30 * time.Minute),
 								},
 							},
 							ScanFn: scanTraceIDFn(),

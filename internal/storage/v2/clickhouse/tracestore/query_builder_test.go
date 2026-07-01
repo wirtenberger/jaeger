@@ -173,6 +173,25 @@ func TestBuildGetTracesQuery(t *testing.T) {
 	}
 }
 
+func TestBuildFindTraceIDsQuery_SortsMostRecentFirst(t *testing.T) {
+	reader := NewReader(&clickhousetest.Driver{}, testReaderConfig)
+	q, args, err := reader.buildFindTraceIDsQuery(t.Context(), tracestore.TraceQueryParams{
+		Attributes:  pcommon.NewMap(),
+		SearchDepth: 5,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, []any{5}, args)
+	assert.Contains(t, q, "max(s.start_time) AS latest_start_time")
+	assert.Contains(t, q, "GROUP BY s.trace_id\n\tORDER BY latest_start_time DESC\n\tLIMIT ?")
+	assert.Contains(t, q, "GROUP BY l.trace_id\nORDER BY latest_start_time DESC")
+
+	findTracesQuery := buildFindTracesQuery(q)
+	assert.Contains(t, findTracesQuery, "INNER JOIN")
+	assert.Contains(t, findTracesQuery, "SELECT trace_id, latest_start_time FROM")
+	assert.Contains(t, findTracesQuery, "ORDER BY trace_ids.latest_start_time DESC, s.trace_id, s.start_time")
+}
+
 func TestBuildStringAttributeCondition_MultipleTypes(t *testing.T) {
 	attr := pcommon.NewValueStr("123") // parses as both int and str
 	var q strings.Builder

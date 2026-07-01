@@ -210,9 +210,9 @@ func (r *Reader) FindTraces(
 
 func readRowIntoTraceID(rows driver.Rows) ([]tracestore.FoundTraceID, error) {
 	var traceIDHex string
-	var start, end time.Time
+	var start, end, latestStart time.Time
 
-	if err := rows.Scan(&traceIDHex, &start, &end); err != nil {
+	if err := rows.Scan(&traceIDHex, &start, &end, &latestStart); err != nil {
 		return nil, fmt.Errorf("failed to scan row: %w", err)
 	}
 

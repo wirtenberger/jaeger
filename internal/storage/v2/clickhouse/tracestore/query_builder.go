@@ -114,9 +114,9 @@ func buildGetTracesQuery(params tracestore.GetTraceParams) (string, []any) {
 }
 
 func buildFindTracesQuery(traceIDsQuery string) string {
-	inner := indentBlock("SELECT trace_id FROM (\n" + indentBlock(strings.TrimSpace(traceIDsQuery)) + "\n)")
+	inner := indentBlock("SELECT trace_id, latest_start_time FROM (\n" + indentBlock(strings.TrimSpace(traceIDsQuery)) + "\n)")
 	base := strings.TrimRight(sql.SelectSpansQuery, "\n")
-	return base + "\nWHERE s.trace_id IN (\n" + inner + "\n)\nORDER BY s.trace_id"
+	return base + "\nINNER JOIN (\n" + inner + "\n) trace_ids ON s.trace_id = trace_ids.trace_id\nORDER BY trace_ids.latest_start_time DESC, s.trace_id, s.start_time"
 }
 
 func (r *Reader) buildFindTraceIDsQuery(
@@ -171,6 +171,8 @@ func (r *Reader) buildFindTraceIDsQuery(
 		return "", nil, err
 	}
 
+	inner.WriteString("\nGROUP BY s.trace_id")
+	inner.WriteString("\nORDER BY latest_start_time DESC")
 	inner.WriteString("\nLIMIT ?")
 	args = append(args, limit)
 

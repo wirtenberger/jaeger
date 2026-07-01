@@ -211,25 +211,28 @@ const SelectSpansByTraceID = SelectSpansQuery + " WHERE s.trace_id = ?"
 // The query begins with a no-op predicate (`WHERE 1=1`) so that additional
 // filters can be appended unconditionally using `AND` without needing to check
 // whether this is the first WHERE clause.
-const SearchTraceIDsBase = `SELECT DISTINCT
-    s.trace_id
+const SearchTraceIDsBase = `SELECT
+    s.trace_id,
+    max(s.start_time) AS latest_start_time
 FROM spans s
 WHERE 1=1`
 
 // SearchTraceIDs wraps a trace ID subquery with a JOIN to
 // trace_id_timestamps to retrieve the start and end times for each trace.
 // The %s placeholder is replaced with the complete inner subquery
-// (SearchTraceIDsBase + conditions + LIMIT).
+// (SearchTraceIDsBase + conditions + GROUP BY + ORDER BY + LIMIT).
 const SearchTraceIDs = `
 SELECT
     l.trace_id,
     min(t.start) AS start,
-    max(t.end) AS end
+    max(t.end) AS end,
+    max(l.latest_start_time) AS latest_start_time
 FROM (
 %s
 ) l
 LEFT JOIN trace_id_timestamps t ON l.trace_id = t.trace_id
-GROUP BY l.trace_id`
+GROUP BY l.trace_id
+ORDER BY latest_start_time DESC`
 
 const SelectServices = `
 SELECT

@@ -69,21 +69,26 @@ SELECT
     scope_complex_attributes.value
 FROM
     spans s
-WHERE s.trace_id IN (
-	SELECT trace_id FROM (
+INNER JOIN (
+	SELECT trace_id, latest_start_time FROM (
 		SELECT
 		    l.trace_id,
 		    min(t.start) AS start,
-		    max(t.end) AS end
+		    max(t.end) AS end,
+		    max(l.latest_start_time) AS latest_start_time
 		FROM (
-			SELECT DISTINCT
-			    s.trace_id
+			SELECT
+			    s.trace_id,
+			    max(s.start_time) AS latest_start_time
 			FROM spans s
 			WHERE 1=1
+			GROUP BY s.trace_id
+			ORDER BY latest_start_time DESC
 			LIMIT ?
 		) l
 		LEFT JOIN trace_id_timestamps t ON l.trace_id = t.trace_id
 		GROUP BY l.trace_id
+		ORDER BY latest_start_time DESC
 	)
-)
-ORDER BY s.trace_id
+) trace_ids ON s.trace_id = trace_ids.trace_id
+ORDER BY trace_ids.latest_start_time DESC, s.trace_id, s.start_time
